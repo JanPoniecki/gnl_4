@@ -1,0 +1,126 @@
+#ifndef BUFFER_SIZE
+#define BUFFER_SIZE 3
+#endif
+
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+typedef struct bfr
+{
+    char    content[BUFFER_SIZE + 1];
+    char    *position;
+    char    *end;
+} buffer;
+
+int f_read(char *src, char *dest, int size)
+{
+    static int i;
+    int j = 0;
+    while (j < size && src[i])
+      dest[j++] = src[i++];
+    return (j);
+}
+
+int search_n(buffer *b)
+{
+    int i = 0;
+    while (b->position[i] != '\n' && b->position[i])
+        i++;
+    return (i);
+}
+
+int re_malloc(char **line, buffer *b)
+{
+    int    i;
+    char *temp;
+
+    i = 0;
+    while ((*line)[i])
+        i++;
+    temp = malloc(i + 1);
+    i = 0;
+    while ((*line)[i])
+    {
+        temp[i] = (*line)[i];
+        i++;
+    }
+    temp[i] = 0;
+    (*line) = malloc(i + search_n(b) + 2);
+    i = 0;
+    while (temp[i])
+    {
+        (*line)[i] = temp[i];
+        i++;
+    }
+    free(temp);
+    return(i);
+}
+
+char *add_2_line(char *line, buffer *b, int *mode)
+{
+    int i = re_malloc(&line, b);
+    while (1)
+    {
+        line[i] = *b->position;
+        if (line[i] == '\n')
+        {
+            line[i + 1] = 0;
+            *mode = 1;
+            if (b->position != b->end)
+              b->position++;
+            return (line);
+        }
+        if (b->position == b->end)
+        {
+            line[i + 1] = 0;
+            *mode = 2;
+            return (line);
+        }
+        b->position++;
+        i++;
+    }
+    return (NULL);
+}
+
+char *get_next_line(char *fd)
+{
+    static buffer b;
+    static int init;
+    int mode = 0;
+    char *line = "";
+    b.end = &b.content[BUFFER_SIZE];
+    *b.end = 0;
+    if (init == 0)
+        b.position = b.end;
+    init = 1;
+    while (1)
+    {
+        if (b.position == b.end)
+        {
+            if (f_read(fd, b.content, BUFFER_SIZE) <= 0)
+              return (NULL);
+            b.position = &b.content[0];
+        }
+        line = add_2_line(line, &b, &mode);
+        if (mode == 1)
+            return (line);
+    }
+}
+
+int main()
+{
+    char *fd="1\n12\nab";
+    int i = 0;
+    while (1)
+    {
+        char *result = get_next_line(fd);
+        if (result)
+            printf("%s\n", result);
+        else
+            break ;
+        i++;
+    }
+}
